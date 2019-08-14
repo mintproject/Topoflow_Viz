@@ -1,5 +1,5 @@
 [![PyPI](https://img.shields.io/badge/python-3.6-yellow.svg)]()
-[![license](https://img.shields.io/github/license/khider/Topoflow_Viz.svg)]()
+[![license](https://img.shields.io/github/license/mintproject/Topoflow_Viz.svg)]()
 
 # Topoflow Visualization
 
