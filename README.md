@@ -64,7 +64,7 @@ This routine assumes that the data is stored as per Topoflow netCDF format and f
 ##<a name="files"> Files in the repository </a>
 
 * June_20_67_2D-Q_5.nc: A sample netcdf file output from Topoflow. See the example [here](https://github.com/peckhams/topoflow/tree/master/topoflow/examples/Treynor_Iowa_30m)
-* Q_movie.gif: A sample gif visualization for Treynor, Iowa
+* treynor_movie.gif: A sample gif visualization for Treynor, Iowa
 * topo_viz.py: The Python routine for the visualization
 
 ## <a name = "contact"> Contact </a>
