@@ -159,4 +159,4 @@ images = []
 for filename in filenames:
     images.append(imageio.imread(filename))
 
-imageio.mimsave(varname+'_movie.gif', images)
+imageio.mimsave(long_name+'_movie.gif', images)
