@@ -40,11 +40,8 @@ def histedges_equalN(x, nbin):
                      np.arange(npt),
                      np.sort(x))
 
-dataset_name = sys.argv[2]
-figsize = ast.literal_eval(sys.argv[3])
-
-
-#roads = True
+dataset_name = sys.argv[1]
+figsize = ast.literal_eval(sys.argv[2])
 
 #open the file
 dataset = xr.open_dataset(dataset_name)
@@ -91,6 +88,20 @@ X_max= np.round(np.max(lon),2)
 Y_min= np.round(np.min(lat),2)
 Y_max= np.round(np.max(lat),2)
 
+step_lon = np.round(np.ptp(lon)/5,2)
+step_lat = np.round(np.ptp(lat)/5,2)
+
+# Names
+
+long_name = dataset[varname].attrs['long_name']
+if '_' in long_name:
+    t = long_name.split('_')
+    strT = t[0].capitalize()
+    for item in t[1:]:
+        strT = strT + ' ' + item.capitalize()
+else:
+    strT = long_name.capitalize()
+
 filenames =[]
 
 #Make a directory if it doesn't exit
@@ -105,42 +116,19 @@ for i in count:
     ax.add_feature(cfeature.BORDERS)
     ax.add_feature(cfeature.COASTLINE)
     img = plt.contourf(lon, lat, v, levels,
-                transform=proj, cmap=cm.gist_gray,norm=PiecewiseNorm(levels)) # need to return to img to make colorbar work
-    #m = plt.cm.ScalarMappable(cmap=cm.viridis,norm=PiecewiseNorm(levels)) # Following three lines necessary to lock ylim on colorbar
-    #m.set_array(v)
-    #m.set_clim(vmin, vmax)
+                transform=proj, cmap=cm.gist_gray,norm=PiecewiseNorm(levels))
     ticks = levels[0::15]
     ticks = np.sort(np.insert(ticks,-1,levels[-1]))
     cbar = plt.colorbar(img, orientation = 'horizontal',
                         format = '%.2e',ticks=ticks)
-    #cbar.clim(vmin,vmax)
-    long_name = dataset[varname].attrs['long_name']
-    if '_' in long_name:
-        t = long_name.split('_')
-        strT = t[0].capitalize()
-        for item in t[1:]:
-            strT = strT + ' ' + item.capitalize()
-    else:
-        strT = long_name.capitalize()
     cbar.ax.set_xlabel((strT+'('+dataset[varname].attrs['units']+')'))
-    
     ax.set_extent([X_min,X_max,Y_min,Y_max])
-#    if (np.max(dataset['nx']) - np.min(dataset['nx']))<0.5:
-#        ax.set_xticks([np.mean(dataset['nx'])], crs=ccrs.PlateCarree())
-#        ax.set_yticks([np.mean(dataset['ny'])], crs=ccrs.PlateCarree())
-#    else:
-#        ax.set_xticks(np.linspace(np.min(dataset['nx']),np.max(dataset['nx']),4), crs=ccrs.PlateCarree())
-#        ax.set_yticks(np.linspace(np.min(dataset['ny']),np.max(dataset['ny']),4), crs=ccrs.PlateCarree())
-#    lon_formatter = LongitudeFormatter(zero_direction_label=True)
-#    lat_formatter = LatitudeFormatter()
     gl = ax.gridlines(crs=ccrs.PlateCarree(), draw_labels=True,
                   linewidth=2, color='gray', alpha=0.5, linestyle='--')
     gl.xlabels_top = False
     gl.ylabels_right = False
     gl.xlines = False
     gl.ylines = False
-    step_lon = np.round(np.ptp(lon)/5,2)
-    step_lat = np.round(np.ptp(lat)/5,2)
     gl.xlocator = mticker.FixedLocator(np.arange(X_min,X_max,step_lon))
     gl.ylocator = mticker.FixedLocator(np.arange(Y_min,Y_max,step_lat))
     gl.xformatter = LONGITUDE_FORMATTER
