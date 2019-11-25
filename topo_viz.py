@@ -1,136 +1,183 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Thu Aug  8 10:25:13 2019
+Created on Sun Nov 24 15:40:41 2019
 
 @author: deborahkhider
 
-
-Movie for Topoflow (simple)
-
+Topolfow visualization from Scott's Notebook 
 """
-import xarray as xr
-import cartopy.crs as ccrs
-import cartopy.feature as cfeature
-import pandas as pd
+
 import numpy as np
 import matplotlib.pyplot as plt
-from pyproj import Proj
-from cartopy.mpl.ticker import LongitudeFormatter, LatitudeFormatter
-import matplotlib.cm as cm
 import imageio
-import os
+import  os
+import glob
 import sys
-import ast
+from topoflow.utils import ncgs_files
+from topoflow.utils import ncts_files
+
+def histogram_equalize( grid, PLOT_NCS=False):
+    (hist, bin_edges) = np.histogram( grid, bins=256)
+    # hmin = hist.min()
+    # hmax = hist.max()
+
+    cs  = hist.cumsum()
+    ncs = (cs - cs.min()) / (cs.max() - cs.min())
+    ncs.astype('uint8');
+    if (PLOT_NCS):
+        plt.plot( ncs )
+
+    flat = grid.flatten()
+    flat2 = np.uint8( 255 * (flat - flat.min()) / (flat.max() - flat.min()) )
+    grid2 = ncs[ flat2 ].reshape( grid.shape )
+    return grid2
+
+def power_stretch1( grid, p ):
+    return grid**p
+
+def power_stretch2( grid, a=1000, b=0.5):
+    # Note: Try a=1000 and b=0.5
+    gmin = grid.min()
+    gmax = grid.max()
+    norm = (grid - gmin) / (gmax - gmin)
+    return (1 - (1 + a * norm)**(-b))
+
+def power_stretch3( grid, a=1, b=2):
+    # Note:  Try a=1, b=2 (shape of a quarter circle)
+    gmin = grid.min()
+    gmax = grid.max()
+    norm = (grid - gmin) / (gmax - gmin)
+    return (1 - (1 - norm**a)**b)**(1/b)
+
+def log_stretch( grid, a=1 ):
+    return np.log( (a * grid) + 1 )
 
 
-zone = float(sys.argv[1])
-dataset_name = sys.argv[2]
-figsize = ast.literal_eval(sys.argv[3])
-#roads = True
+def makeDirectory(case_prefix):
+    home_dir   = os.path.expanduser("~")
+    test_dir   = home_dir + '/TF_Output'
+    output_dir = test_dir + '/' + case_prefix
+    png_dir    = output_dir + '/' + 'png_files'
 
-#open the file
-dataset = xr.open_dataset(dataset_name)
-
-#Get the only variable. According to Scott, one file/variable 
-varname = list(dataset.data_vars.keys())[0]
-
-## Get the flow values
-val = dataset[varname].values
-nx = dataset.nx.values
-ny = dataset.ny.values
-
-## get the edges
-val_attrs = dataset[varname].attrs
-ymin = val_attrs['y_south_edge']
-ymax= val_attrs['y_north_edge']
-xmin = val_attrs['x_west_edge']
-xmax = val_attrs['x_east_edge']
-
-## get the steps
-dx = val_attrs['dx']
-dy = val_attrs['dy']
-
-## easting/northing vectors
-easting = xmin+dx/2+nx*dx
-northing = ymin+dy/2+ny*dy
-
-dataset['nx']=easting
-dataset['ny']=northing
-## convert to lat/lon for sanity
-xx,yy=np.meshgrid(easting,northing)
-xx2 = np.reshape(xx,xx.size)
-yy2 = np.reshape(yy,yy.size)
-dv= pd.DataFrame({'east':xx2,'north':yy2})
-# use pyproj to do this
-myProj = Proj("+proj=utm +zone="+str(zone)+", +ellps=WGS84 +datum=WGS84 +units=m +no_defs")
-lon_all, lat_all = myProj(dv['east'].values, dv['north'].values, inverse=True)
-#now get the "unique" lon
-lon = lon_all[0:nx.size]
-assert lon.size == nx.size, "Longitude vector size is incorrect"
-dataset['nx']=lon
-#get the "unique"lat
-idx_vec = np.arange(0,lon_all.size,nx.size)
-lat = lat_all[idx_vec]
-assert lat.size == ny.size, "Latitude vector size is incorrect"
-dataset['ny']=lat
-
-
-#make the map in cartopy
-proj = ccrs.PlateCarree(central_longitude = np.mean(dataset['nx']))
-idx = dataset['time'].values.size
-count = list(np.arange(0,idx,1))
-vmin = np.min(dataset[varname].values)
-vmax = np.max(dataset[varname].values)
-filenames =[]
-
-#Make a directory if it doesn't exit
-if os.path.isdir('./figures') is False:
-    os.makedirs('./figures')
-
-# loop to create all figures for each time slice
-for i in count:
-    v = dataset[varname].values[i,:,:]
-    fig,ax = plt.subplots(figsize=figsize)
-    ax = plt.axes(projection=proj)
-    img = plt.contourf(nx, ny, v, 60,
-                transform=proj, cmap=cm.viridis,
-                vmin = vmin,
-                vmax = vmax) # need to return to img to make colorbar work
-    m = plt.cm.ScalarMappable(cmap=cm.viridis) # Following three lines necessary to lock ylim on colorbar
-    m.set_array(v)
-    m.set_clim(vmin, vmax) 
-    cbar = plt.colorbar(m, boundaries=np.linspace(vmin, vmax,6))
-    #ax.add_feature(cfeature.RIVERS) 
-    ax.add_feature(cfeature.BORDERS)
-    #ax.add_feature(cfeature.NaturalEarthFeature('cultural', 'roads', '10m'))
-    long_name = dataset[varname].attrs['long_name']
-    if '_' in long_name:
-        t = long_name.split('_')
-        strT = t[0].capitalize()
-        for item in t[1:]:
-            strT = strT + ' ' + item.capitalize()
-    else:
-        strT = long_name.capitalize()
-    cbar.ax.set_ylabel((strT+'('+dataset[varname].attrs['units']+')'))
-    if (np.max(dataset['nx']) - np.min(dataset['nx']))<0.5:
-        ax.set_xticks([np.mean(dataset['nx'])], crs=ccrs.PlateCarree())
-        ax.set_yticks([np.mean(dataset['ny'])], crs=ccrs.PlateCarree())
-    else:
-        ax.set_xticks(np.linspace(np.min(dataset['nx']),np.max(dataset['nx']),4), crs=ccrs.PlateCarree())
-        ax.set_yticks(np.linspace(np.min(dataset['ny']),np.max(dataset['ny']),4), crs=ccrs.PlateCarree())
-    lon_formatter = LongitudeFormatter(zero_direction_label=True)
-    lat_formatter = LatitudeFormatter()
+    if not(os.path.exists( test_dir )):   os.mkdir( test_dir )
+    if not(os.path.exists( output_dir )): os.mkdir( output_dir)
+    if not(os.path.exists( png_dir )):    os.mkdir( png_dir)
     
-    #save as jpeg
-    filename = './figures/'+varname+'_t'+str(i)+'.jpeg'
-    filenames.append(filename)
-    plt.savefig(filename)
-    plt.close(fig)
+    os.chdir( output_dir )
+    
+    return png_dir, output_dir, test_dir
 
-#Make the GIF
-images = []
-for filename in filenames:
-    images.append(imageio.imread(filename))
+def makeGridMovie(nc_file, png_dir, case_prefix):
+    
+    ncgs = ncgs_files.ncgs_file()
+    ncgs.open_file( nc_file )
+    var_name_list = ncgs.get_var_names()
+    var_name  = var_name_list[3]
+    long_name = ncgs.get_var_long_name( var_name )
+    var_units = ncgs.get_var_units( var_name )
+    
+    #create grid stack movie
+    im_title = long_name.replace('_', ' ').title()
+    im_file_prefix = 'TF_Movie_Frame_'
+    time_pad_map = {1:'0000', 2:'000', 3:'00', 4:'0', 5:''}
+    cmap = 'rainbow'
+    
+    time_index = 0
+    
+    while (True):
+        # print('time index =', time_index )
+        try:
+            grid = ncgs.get_grid( var_name, time_index )
+        except:
+            break
+        time_index += 1
+        ## grid2 = log_stretch( grid )
+        ## grid2 = power_stretch1( grid )
+        grid2 = power_stretch3( grid )
+        ## grid2 = histogram_equalize( grid )
+        gmin = grid2.min()
+        gmax = grid2.max()
+    
+        fig, ax = plt.subplots( figsize=(6,6), dpi=192) 
+        ax.set_title( im_title )
+        ax.set_xlabel('Longitude [deg]')
+        ax.set_ylabel('Latitude [deg]')
+        im = ax.imshow(grid2, interpolation='nearest', cmap=cmap,
+                       vmin=gmin, vmax=gmax)
+        cbar = plt.colorbar(im, orientation='horizontal',pad=0.2)
+        cbar.ax.set_title(long_name + '('+var_units+')')
+        # Build a filename for this image/frame
+        tstr = str(time_index)
+        pad = time_pad_map[ len(tstr) ]
+        time_str = (pad + tstr)
+        im_file = im_file_prefix + time_str + '.png' 
+        im_file = (png_dir + '/' + im_file)
+    
+        plt.savefig( im_file )
+        plt.close()
+    
+    ncgs.close_file()
+    
+    # Make movie
+    fps = 10  # frames per second
+    mp4_file = case_prefix+'_Movie.mp4'
+    im_file_list = sorted( glob.glob( png_dir + '/*.png' ) )
+    
+    writer = imageio.get_writer( mp4_file, fps=fps )
+    
+    for im_file in im_file_list:
+        writer.append_data(imageio.imread( im_file ))
+    writer.close()
 
-imageio.mimsave(varname+'_movie.gif', images)
+def tsPlot(nc_file, output_dir, case_prefix):
+    ncts = ncts_files.ncts_file()
+    ncts.open_file( nc_file )
+    var_name_list = ncts.get_var_names()
+    var_name = var_name_list[3]
+    (series, times) = ncts.get_series( var_name )
+    long_name = series.long_name
+    v_units   = series.units
+    t_units   = times.units
+    values    = np.array( series )
+    times     = np.array( times )
+    
+    if (t_units == 'minutes'):
+        times = times / (60.0 * 24)
+        t_units = 'days'
+        
+    ymin = 0.0
+    ymax = values.max()
+
+    plt.figure(1, figsize=(11,6))
+    marker = ','  # pixel
+    y_name = long_name.replace('_', ' ').title()
+
+    plt.plot( times, values, marker=marker)
+    plt.xlabel( 'Time' + ' [' + t_units + ']' )
+    plt.ylabel( y_name + ' [' + v_units + ']' )
+    plt.ylim( np.array(ymin, ymax) )
+    
+    im_file = output_dir+'/'+case_prefix+ '.png'
+    plt.savefig( im_file )
+
+
+    ncts.close_file()
+    
+if __name__ == "__main__":
+    nc_file = sys.argv[1]
+    file_name = nc_file.split('/')[-1]
+    case_prefix = file_name.split('_')[0]
+    png_dir, output_dir, test_dir = makeDirectory(case_prefix)
+    if nc_file.split('_')[1][0:2] == '2D':
+        makeGridMovie(nc_file, png_dir,case_prefix)
+    else:
+        tsPlot(nc_file, output_dir,case_prefix)
+    
+    
+
+
+
+
+
+
