@@ -169,7 +169,7 @@ if __name__ == "__main__":
     file_name = nc_file.split('/')[-1]
     case_prefix = file_name.split('_')[0]
     png_dir, output_dir, test_dir = makeDirectory(case_prefix)
-    if nc_file.split('_')[1][0:2] == '2D':
+    if '2D' in nc_file:
         makeGridMovie(nc_file, png_dir,case_prefix)
     else:
         tsPlot(nc_file, output_dir,case_prefix)
