@@ -2,12 +2,12 @@
 # -*- coding: utf-8 -*-
 """
 Created on Sun Nov 24 15:40:41 2019
-​
+
 @author: deborahkhider
-​
+
 Topolfow visualization from Scott's Notebook 
 """
-​
+
 import numpy as np
 import matplotlib.pyplot as plt
 import imageio
@@ -16,50 +16,50 @@ import glob
 import sys
 from topoflow.utils import ncgs_files
 from topoflow.utils import ncts_files
-​
+
 def histogram_equalize( grid, PLOT_NCS=False):
     (hist, bin_edges) = np.histogram( grid, bins=256)
     # hmin = hist.min()
     # hmax = hist.max()
-​
+
     cs  = hist.cumsum()
     ncs = (cs - cs.min()) / (cs.max() - cs.min())
     ncs.astype('uint8');
     if (PLOT_NCS):
         plt.plot( ncs )
-​
+
     flat = grid.flatten()
     flat2 = np.uint8( 255 * (flat - flat.min()) / (flat.max() - flat.min()) )
     grid2 = ncs[ flat2 ].reshape( grid.shape )
     return grid2
-​
+
 def power_stretch1( grid, p ):
     return grid**p
-​
+
 def power_stretch2( grid, a=1000, b=0.5):
     # Note: Try a=1000 and b=0.5
     gmin = grid.min()
     gmax = grid.max()
     norm = (grid - gmin) / (gmax - gmin)
     return (1 - (1 + a * norm)**(-b))
-​
+
 def power_stretch3( grid, a=1, b=2):
     # Note:  Try a=1, b=2 (shape of a quarter circle)
     gmin = grid.min()
     gmax = grid.max()
     norm = (grid - gmin) / (gmax - gmin)
     return (1 - (1 - norm**a)**b)**(1/b)
-​
+
 def log_stretch( grid, a=1 ):
     return np.log( (a * grid) + 1 )
-​
-​
+
+
 def makeDirectory(case_prefix):
     home_dir   = os.path.expanduser("~")
     test_dir   = home_dir + '/TF_Output'
     output_dir = test_dir + '/' + case_prefix
     png_dir    = output_dir + '/' + 'png_files'
-​
+
     if not(os.path.exists( test_dir )):   os.mkdir( test_dir )
     if not(os.path.exists( output_dir )): os.mkdir( output_dir)
     if not(os.path.exists( png_dir )):    os.mkdir( png_dir)
@@ -67,7 +67,7 @@ def makeDirectory(case_prefix):
     os.chdir( output_dir )
     
     return png_dir, output_dir, test_dir
-​
+
 def makeGridMovie(nc_file, png_dir, case_prefix):
     
     ncgs = ncgs_files.ncgs_file()
@@ -129,7 +129,7 @@ def makeGridMovie(nc_file, png_dir, case_prefix):
     for im_file in im_file_list:
         writer.append_data(imageio.imread( im_file ))
     writer.close()
-​
+
 def tsPlot(nc_file, output_dir, case_prefix):
     ncts = ncts_files.ncts_file()
     ncts.open_file( nc_file )
@@ -148,11 +148,11 @@ def tsPlot(nc_file, output_dir, case_prefix):
         
     ymin = 0.0
     ymax = values.max()
-​
+
     plt.figure(1, figsize=(11,6))
     marker = ','  # pixel
     y_name = long_name.replace('_', ' ').title()
-​
+
     plt.plot( times, values, marker=marker)
     plt.xlabel( 'Time' + ' [' + t_units + ']' )
     plt.ylabel( y_name + ' [' + v_units + ']' )
@@ -160,8 +160,8 @@ def tsPlot(nc_file, output_dir, case_prefix):
     
     im_file = output_dir+'/'+case_prefix+ '.png'
     plt.savefig( im_file )
-​
-​
+
+
     ncts.close_file()
     
 if __name__ == "__main__":
@@ -169,8 +169,15 @@ if __name__ == "__main__":
     file_name = nc_file.split('/')[-1]
     case_prefix = file_name.split('_')[0]
     png_dir, output_dir, test_dir = makeDirectory(case_prefix)
-    if nc_file.split('_')[1][0:2] == '2D':
+    if '2D' in nc_file:
         makeGridMovie(nc_file, png_dir,case_prefix)
     else:
         tsPlot(nc_file, output_dir,case_prefix)
     
+    
+
+
+
+
+
+
